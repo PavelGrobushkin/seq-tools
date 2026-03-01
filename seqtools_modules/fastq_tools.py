@@ -1,5 +1,33 @@
 from typing import Union, Tuple
 from statistics import mean
+import os
+
+
+def check_filters(
+    sequence: str,
+    quality: str,
+    quality_threshold: float,
+    gc_bounds: Union[Tuple[float, float], float],
+    length_bounds: Union[Tuple[int, int], int],
+) -> bool:
+    """
+    Wrapping function that checks if a given FASTQ read pass all required filtering criteria.
+
+    Arguments:
+    sequence: str - Nucleotide sequence. Must be stripped of newlines.
+    quality: str - Quality string encoded in Phred33. Must be stripped of newlines.
+    quality_threshold: float - Minimum average quality score required.
+    gc_bounds: tuple or float - Bounds for GC content (%).
+    length_bounds: tuple or int - Bounds for sequence length.
+
+    Returns:
+    bool - True if the record passes all filters, False otherwise.
+    """
+    return (
+        quality_filter(quality, quality_threshold)
+        and gc_filter(sequence, gc_bounds)
+        and len_filter(sequence, length_bounds)
+    )
 
 
 def quality_filter(phred33: str, quality_threshold: float) -> bool:
