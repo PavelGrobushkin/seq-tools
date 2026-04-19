@@ -6,12 +6,16 @@ Toolkit for biological sequences transformations and FASTQ filtering.
 """
 
 import os
+import re
 
 from statistics import mean
 from typing import Tuple, Union, List
 from abc import ABC, abstractmethod
-from collections.abc import Sequence, Number
+from collections.abc import Sequence
+from numbers import Number
 
+import click
+from loguru import logger
 from Bio import SeqIO
 from Bio.SeqUtils import gc_fraction
 
@@ -169,7 +173,9 @@ class AminoAcidSequence(BiologicalSequence):
         """
         cleavage_sites = []
         for i in range(len(self.sequence) - 1):
-            if self.sequence[i] in "KRkr" and self.sequence[i + 1] != "Pp":
+            if self.sequence[i] in "KRkr" and not re.match(
+                "[Pp]", self.sequence[i + 1]
+            ):
                 cleavage_sites.append(i)
         return cleavage_sites
 
@@ -227,3 +233,36 @@ def filter_fastq(
 
     with open(output_path, "w") as out_handle:
         SeqIO.write(filtered_records(), out_handle, "fastq")
+
+
+@click.command()
+@click.argument("input_fastq")
+@click.argument("output_fastq")
+@click.option("--gc-min", default=0.0, type=float, help="Min GC content (%)")
+@click.option("--gc-max", default=100.0, type=float, help="Max GC content (%)")
+@click.option("--len-min", default=0, type=int, help="Min read length")
+@click.option("--len-max", default=2**32, type=int, help="Max read length")
+@click.option("-q", "--quality", default=0.0, type=float, help="Min average quality")
+def filter_fastq_cli(
+    input_fastq, output_fastq, gc_min, gc_max, len_min, len_max, quality
+):
+    logger.add("seqtools.log", level="DEBUG")
+
+    logger.info(f"Starting to filter {input_fastq}")
+
+    try:
+        filter_fastq(
+            input_fastq,
+            output_fastq,
+            gc_bounds=(gc_min, gc_max),
+            length_bounds=(len_min, len_max),
+            quality_threshold=quality,
+        )
+        logger.success("Filtering complete")
+    except FileNotFoundError:
+        logger.error(f"File not found: {input_fastq}")
+        raise
+
+
+if __name__ == "__main__":
+    filter_fastq_cli()
